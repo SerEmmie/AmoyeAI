@@ -141,7 +141,7 @@ export function HomePage() {
             <div className="lg:col-span-5">
               <figure className="relative rounded-2xl overflow-hidden border border-white/15 bg-[#1D0B31] shadow-2xl max-w-md mx-auto lg:max-w-none">
                 <img
-                  src="/assets/aistudio/image_05ce9a2b.png"
+                  src={`${import.meta.env.BASE_URL}assets/aistudio/image_05ce9a2b.png`}
                   alt="Amoye AI Chatbot official civic technology artwork featuring #OsunOpenLG"
                   className="w-full aspect-square object-cover"
                 />
