@@ -1,0 +1,255 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net (Default-Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Primitive Helpers ---
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedEmail() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isVerifiedEmail() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        request.auth.token.email == 'EmmybikeCEO@gmail.com'
+      );
+    }
+
+    function isValidCategory(cat) {
+      return cat in [
+        'Community Updates',
+        'Infrastructure',
+        'Education',
+        'Health',
+        'Environment',
+        'Governance',
+        'Events',
+        'Other'
+      ];
+    }
+
+    function isValidUpdateStatus(status) {
+      return status in ['pending', 'approved', 'rejected', 'unpublished'];
+    }
+
+    function isValidInquiryType(t) {
+      return t in [
+        'General enquiries',
+        'Technical support',
+        'Media enquiries',
+        'Partnership enquiries',
+        'Information corrections'
+      ];
+    }
+
+    function isValidImageUrl(url) {
+      return url is string &&
+        url.size() <= 450000 &&
+        (url == '' || url.matches('^data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$'));
+    }
+
+    // --- Entity Validation Blueprints ---
+    function isValidCommunityUpdate(data) {
+      return data.keys().hasAll([
+          'title',
+          'description',
+          'category',
+          'location',
+          'contributor_name',
+          'attribution_consent',
+          'image_url',
+          'status',
+          'created_at',
+          'updated_at'
+        ]) &&
+        data.keys().hasOnly([
+          'title',
+          'description',
+          'category',
+          'location',
+          'contributor_name',
+          'attribution_consent',
+          'image_url',
+          'status',
+          'created_at',
+          'updated_at',
+          'published_at',
+          'reviewed_by',
+          'moderation_note'
+        ]) &&
+        data.title is string && data.title.size() >= 5 && data.title.size() <= 140 &&
+        data.description is string && data.description.size() >= 20 && data.description.size() <= 2500 &&
+        isValidCategory(data.category) &&
+        data.location is string && data.location.size() >= 2 && data.location.size() <= 80 &&
+        data.contributor_name is string && data.contributor_name.size() >= 2 && data.contributor_name.size() <= 80 &&
+        data.attribution_consent is bool &&
+        isValidImageUrl(data.image_url) &&
+        isValidUpdateStatus(data.status) &&
+        data.created_at is timestamp &&
+        data.updated_at is timestamp &&
+        (!('published_at' in data) || data.published_at == null || data.published_at is timestamp) &&
+        (!('reviewed_by' in data) || data.reviewed_by == null || (data.reviewed_by is string && data.reviewed_by.size() <= 128)) &&
+        (!('moderation_note' in data) || data.moderation_note == null || (data.moderation_note is string && data.moderation_note.size() <= 500));
+    }
+
+    function isValidSubmissionContact(data, updateId) {
+      return data.keys().hasAll([
+          'update_id',
+          'contributor_name',
+          'contributor_contact',
+          'consent_given',
+          'created_at'
+        ]) &&
+        data.keys().hasOnly([
+          'update_id',
+          'contributor_name',
+          'contributor_contact',
+          'consent_given',
+          'created_at'
+        ]) &&
+        data.update_id == updateId &&
+        data.contributor_name is string && data.contributor_name.size() >= 2 && data.contributor_name.size() <= 80 &&
+        data.contributor_contact is string && data.contributor_contact.size() >= 5 && data.contributor_contact.size() <= 120 &&
+        data.consent_given == true &&
+        data.created_at == request.time;
+    }
+
+    function isValidContactInquiry(data) {
+      return data.keys().hasAll([
+          'name',
+          'email',
+          'inquiry_type',
+          'subject',
+          'message',
+          'status',
+          'created_at'
+        ]) &&
+        data.keys().hasOnly([
+          'name',
+          'email',
+          'inquiry_type',
+          'subject',
+          'message',
+          'status',
+          'created_at'
+        ]) &&
+        data.name is string && data.name.size() >= 2 && data.name.size() <= 80 &&
+        data.email is string && data.email.size() >= 5 && data.email.size() <= 120 && data.email.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$') &&
+        isValidInquiryType(data.inquiry_type) &&
+        data.subject is string && data.subject.size() >= 3 && data.subject.size() <= 140 &&
+        data.message is string && data.message.size() >= 15 && data.message.size() <= 2500 &&
+        data.status in ['new', 'reviewed', 'resolved'] &&
+        data.created_at is timestamp;
+    }
+
+    function isValidAdminUser(data) {
+      return data.keys().hasAll(['email', 'role', 'added_at', 'added_by']) &&
+        data.keys().hasOnly(['email', 'role', 'added_at', 'added_by']) &&
+        data.email is string && data.email.size() >= 5 && data.email.size() <= 120 &&
+        data.role == 'admin' &&
+        data.added_at is timestamp &&
+        data.added_by is string && data.added_by.size() >= 1 && data.added_by.size() <= 128;
+    }
+
+    // --- Collection Rules ---
+
+    // 1. Public & Moderated Community Updates (no contact PII)
+    match /community_updates/{updateId} {
+      allow get: if isValidId(updateId) && (existing().status == 'approved' || isAdmin());
+      allow list: if resource.data.status == 'approved' || isAdmin();
+
+      // Public citizens can submit ONLY in 'pending' status with server timestamps
+      allow create: if isValidId(updateId) &&
+        isValidCommunityUpdate(incoming()) &&
+        incoming().status == 'pending' &&
+        incoming().created_at == request.time &&
+        incoming().updated_at == request.time &&
+        (!('published_at' in incoming()) || incoming().published_at == null) &&
+        (!('reviewed_by' in incoming()) || incoming().reviewed_by == null) &&
+        (!('moderation_note' in incoming()) || incoming().moderation_note == null);
+
+      // Only verified admins can edit, approve, reject, unpublish, or delete
+      allow update: if isValidId(updateId) &&
+        isAdmin() &&
+        isValidCommunityUpdate(incoming()) &&
+        incoming().created_at == existing().created_at &&
+        incoming().updated_at == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'title',
+          'description',
+          'category',
+          'location',
+          'contributor_name',
+          'attribution_consent',
+          'image_url',
+          'status',
+          'updated_at',
+          'published_at',
+          'reviewed_by',
+          'moderation_note'
+        ]);
+
+      allow delete: if isValidId(updateId) && isAdmin();
+    }
+
+    // 2. Private Contributor Contact PII (Split Collection)
+    match /community_submission_contacts/{updateId} {
+      allow get: if isValidId(updateId) && isAdmin();
+      allow list: if isAdmin();
+      allow create: if isValidId(updateId) &&
+        isValidSubmissionContact(incoming(), updateId) &&
+        existsAfter(/databases/$(database)/documents/community_updates/$(updateId));
+      allow update: if false;
+      allow delete: if isValidId(updateId) && isAdmin();
+    }
+
+    // 3. Contact Form Inquiries
+    match /contact_inquiries/{inquiryId} {
+      allow get: if isValidId(inquiryId) && isAdmin();
+      allow list: if isAdmin();
+      allow create: if isValidId(inquiryId) &&
+        isValidContactInquiry(incoming()) &&
+        incoming().status == 'new' &&
+        incoming().created_at == request.time;
+      allow update: if isValidId(inquiryId) &&
+        isAdmin() &&
+        isValidContactInquiry(incoming()) &&
+        incoming().created_at == existing().created_at &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['status']);
+      allow delete: if isValidId(inquiryId) && isAdmin();
+    }
+
+    // 4. Administrator Registry
+    match /admins/{uid} {
+      allow get: if isValidId(uid) && isVerifiedEmail() && (request.auth.uid == uid || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isValidId(uid) &&
+        isAdmin() &&
+        isValidAdminUser(incoming()) &&
+        incoming().added_at == request.time;
+      allow update: if false;
+      allow delete: if isValidId(uid) && isAdmin() && request.auth.uid != uid;
+    }
+  }
+}

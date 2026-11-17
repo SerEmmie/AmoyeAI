@@ -1,0 +1,6 @@
+{
+  "name": "Amoye AI",
+  "description": "Civic technology and citizen engagement platform for Osun State (#OsunOpenLG), connecting citizens with local government information via WhatsApp and moderated community updates.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

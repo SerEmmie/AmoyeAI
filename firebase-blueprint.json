@@ -1,0 +1,277 @@
+{
+  "entities": {
+    "CommunityUpdate": {
+      "title": "CommunityUpdate",
+      "description": "Public-facing and moderation-managed community update record for Osun State citizens.",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Headline of the community update.",
+          "minLength": 5,
+          "maxLength": 140
+        },
+        "description": {
+          "type": "string",
+          "description": "Detailed description of the community update or civic report.",
+          "minLength": 20,
+          "maxLength": 2500
+        },
+        "category": {
+          "type": "string",
+          "description": "Category of the update.",
+          "enum": [
+            "Community Updates",
+            "Infrastructure",
+            "Education",
+            "Health",
+            "Environment",
+            "Governance",
+            "Events",
+            "Other"
+          ]
+        },
+        "location": {
+          "type": "string",
+          "description": "Osun State local government area or community location.",
+          "minLength": 2,
+          "maxLength": 80
+        },
+        "contributor_name": {
+          "type": "string",
+          "description": "Public attribution name or Anonymous Citizen if attribution consent was withheld.",
+          "minLength": 2,
+          "maxLength": 80
+        },
+        "attribution_consent": {
+          "type": "boolean",
+          "description": "Whether the contributor consented to public name attribution."
+        },
+        "image_url": {
+          "type": "string",
+          "description": "Optional sanitized base64 JPEG/PNG/WebP data URI or empty string.",
+          "maxLength": 450000,
+          "pattern": "^(|data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+)$"
+        },
+        "status": {
+          "type": "string",
+          "description": "Moderation lifecycle status.",
+          "enum": [
+            "pending",
+            "approved",
+            "rejected",
+            "unpublished"
+          ]
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when submitted."
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of latest update."
+        },
+        "published_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when approved and published (null while pending)."
+        },
+        "reviewed_by": {
+          "type": "string",
+          "description": "Admin UID or email of the reviewer (null while pending).",
+          "maxLength": 128
+        },
+        "moderation_note": {
+          "type": "string",
+          "description": "Optional internal moderation note.",
+          "maxLength": 500
+        }
+      },
+      "required": [
+        "title",
+        "description",
+        "category",
+        "location",
+        "contributor_name",
+        "attribution_consent",
+        "image_url",
+        "status",
+        "created_at",
+        "updated_at"
+      ]
+    },
+    "CommunitySubmissionContact": {
+      "title": "CommunitySubmissionContact",
+      "description": "Private PII contact record linked 1-to-1 with a community update submission, readable only by admins.",
+      "type": "object",
+      "properties": {
+        "update_id": {
+          "type": "string",
+          "description": "Linked community_updates document ID.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "contributor_name": {
+          "type": "string",
+          "description": "Real name provided by the contributor.",
+          "minLength": 2,
+          "maxLength": 80
+        },
+        "contributor_contact": {
+          "type": "string",
+          "description": "Private email address or phone number provided for follow-up.",
+          "minLength": 5,
+          "maxLength": 120
+        },
+        "consent_given": {
+          "type": "boolean",
+          "description": "Explicit consent to publication and moderation review."
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when submitted."
+        }
+      },
+      "required": [
+        "update_id",
+        "contributor_name",
+        "contributor_contact",
+        "consent_given",
+        "created_at"
+      ]
+    },
+    "ContactInquiry": {
+      "title": "ContactInquiry",
+      "description": "Contact form inquiry submitted by visitors.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Sender full name.",
+          "minLength": 2,
+          "maxLength": 80
+        },
+        "email": {
+          "type": "string",
+          "description": "Sender email address.",
+          "minLength": 5,
+          "maxLength": 120,
+          "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
+        },
+        "inquiry_type": {
+          "type": "string",
+          "description": "Category of contact inquiry.",
+          "enum": [
+            "General enquiries",
+            "Technical support",
+            "Media enquiries",
+            "Partnership enquiries",
+            "Information corrections"
+          ]
+        },
+        "subject": {
+          "type": "string",
+          "description": "Subject line of the inquiry.",
+          "minLength": 3,
+          "maxLength": 140
+        },
+        "message": {
+          "type": "string",
+          "description": "Detailed message body.",
+          "minLength": 15,
+          "maxLength": 2500
+        },
+        "status": {
+          "type": "string",
+          "description": "Inquiry triage status.",
+          "enum": [
+            "new",
+            "reviewed",
+            "resolved"
+          ]
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when submitted."
+        }
+      },
+      "required": [
+        "name",
+        "email",
+        "inquiry_type",
+        "subject",
+        "message",
+        "status",
+        "created_at"
+      ]
+    },
+    "AdminUser": {
+      "title": "AdminUser",
+      "description": "Authorized administrator registry.",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "description": "Administrator email address.",
+          "minLength": 5,
+          "maxLength": 120
+        },
+        "role": {
+          "type": "string",
+          "description": "Administrator role.",
+          "enum": [
+            "admin"
+          ]
+        },
+        "added_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when granted admin access."
+        },
+        "added_by": {
+          "type": "string",
+          "description": "UID or email of the granting admin.",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "email",
+        "role",
+        "added_at",
+        "added_by"
+      ]
+    }
+  },
+  "firestore": {
+    "/community_updates/{updateId}": {
+      "schema": {
+        "$ref": "#/entities/CommunityUpdate"
+      },
+      "description": "Publicly queryable approved updates and admin-moderated submissions without contributor contact PII."
+    },
+    "/community_submission_contacts/{updateId}": {
+      "schema": {
+        "$ref": "#/entities/CommunitySubmissionContact"
+      },
+      "description": "Private contributor contact details isolated from public reads."
+    },
+    "/contact_inquiries/{inquiryId}": {
+      "schema": {
+        "$ref": "#/entities/ContactInquiry"
+      },
+      "description": "Contact form enquiries readable and triaged exclusively by admins."
+    },
+    "/admins/{uid}": {
+      "schema": {
+        "$ref": "#/entities/AdminUser"
+      },
+      "description": "Trusted administrator UIDs."
+    }
+  }
+}
