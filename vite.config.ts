@@ -4,9 +4,16 @@ import fs from 'fs';
 import path from 'path';
 import {defineConfig} from 'vite';
 
+function resolveViteBase(): string {
+  const raw = process.env.VITE_BASE_PATH?.trim();
+  if (!raw) return './';
+  const normalized = `/${raw.replace(/^\/+|\/+$/g, '')}/`;
+  return normalized === '//' ? '/' : normalized;
+}
+
 export default defineConfig(() => {
   return {
-    base: process.env.VITE_BASE_PATH || '/',
+    base: resolveViteBase(),
     plugins: [
       react(),
       tailwindcss(),

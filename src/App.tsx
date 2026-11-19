@@ -30,11 +30,34 @@ function NotFoundPage() {
   );
 }
 
+const APP_TOP_LEVEL_ROUTES = new Set([
+  'about',
+  'how-it-works',
+  'community',
+  'contact',
+  'privacy',
+  'admin',
+]);
+
+function getRouterBasename(): string {
+  const baseUrl = import.meta.env.BASE_URL;
+  if (baseUrl && baseUrl.startsWith('/') && baseUrl !== '/') {
+    return baseUrl.replace(/\/+$/, '');
+  }
+  if (typeof window !== 'undefined' && window.location.hostname.endsWith('.github.io')) {
+    const firstSegment = window.location.pathname.split('/').filter(Boolean)[0];
+    if (firstSegment && !APP_TOP_LEVEL_ROUTES.has(firstSegment)) {
+      return `/${firstSegment}`;
+    }
+  }
+  return '/';
+}
+
 export default function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <BrowserRouter basename={import.meta.env.BASE_URL}>
+        <BrowserRouter basename={getRouterBasename()}>
           <Layout>
             <Routes>
               <Route path="/" element={<HomePage />} />

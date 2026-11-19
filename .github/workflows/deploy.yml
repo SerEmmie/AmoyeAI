@@ -2,7 +2,7 @@ name: Deploy Amoye AI to GitHub Pages
 
 on:
   push:
-    branches: ['main']
+    branches: ['main', 'master']
   workflow_dispatch:
 
 permissions:
@@ -21,6 +21,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Pages
+        id: pages
+        uses: actions/configure-pages@v5
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -31,31 +35,19 @@ jobs:
           if [ -f package-lock.json ]; then
             npm ci
           else
-            npm install --no-audit --no-fund
-          fi
-
-      - name: Determine GitHub Pages base path
-        id: pages_base
-        run: |
-          REPO_NAME="${{ github.event.repository.name }}"
-          OWNER_PAGES="${{ github.repository_owner }}.github.io"
-          if [ "${REPO_NAME,,}" = "${OWNER_PAGES,,}" ]; then
-            echo "base=/" >> "$GITHUB_OUTPUT"
-          else
-            echo "base=/${REPO_NAME}/" >> "$GITHUB_OUTPUT"
+            npm install --no-audit --no-fund --legacy-peer-deps
           fi
 
       - name: Build production bundle
         env:
-          VITE_BASE_PATH: ${{ steps.pages_base.outputs.base }}
+          VITE_BASE_PATH: ${{ steps.pages.outputs.base_path }}/
           VITE_WHATSAPP_COMMUNITY_INVITE_URL: ${{ vars.VITE_WHATSAPP_COMMUNITY_INVITE_URL }}
         run: npm run build
 
-      - name: Create SPA 404 fallback
-        run: cp dist/index.html dist/404.html
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
+      - name: Prepare GitHub Pages SPA files
+        run: |
+          cp dist/index.html dist/404.html
+          touch dist/.nojekyll
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
